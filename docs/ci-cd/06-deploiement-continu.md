@@ -22,7 +22,7 @@ Après la build, le scan Trivy et le push des images sur GHCR, le job `deploy` s
 | **Dépendance** | `needs: [build-and-push]`, attend que les images soient poussées sur GHCR |
 | **Connexion SSH** | `appleboy/ssh-action` épinglé par SHA `7eaf766...` (v1.2.0) avec clé privée stockée en GitHub Secret |
 | **Mise à jour IMAGE_TAG** | `sed -i` dans `.env` sur le VPS pour pointer vers le SHA du commit |
-| **Récupération fichiers** | `git fetch` + `git checkout` du `docker-compose.staging.yml` et `nginx.staging.conf` à jour |
+| **Récupération fichiers** | `curl` depuis `raw.githubusercontent.com` du `docker-compose.staging.yml` et `nginx.staging.conf` à jour (évite `git fetch` qui nécessite des permissions d'écriture sur `.git/objects` du VPS) |
 | **Login GHCR** | Authentification Docker avec un PAT (`VPS_GHCR_TOKEN`) pour pull les images privées |
 | **Pull + restart** | `docker compose pull` puis `docker compose up -d` |
 | **Healthcheck** | Boucle de 12 tentatives × 5s = 60s max sur `/actuator/health` |
@@ -67,7 +67,7 @@ chown -R deploy:deploy /opt/devfolio
 chmod 600 /opt/devfolio/.env
 ```
 
-> **Attention** : si les fichiers appartiennent à un autre utilisateur (`root`, `debian`), le job `deploy` peut échouer avec des erreurs de permission (`git fetch`, écriture `.env`). Le job `deploy` se connecte en tant que `deploy`, pas en tant que `root`.
+> **Attention** : si les fichiers appartiennent à un autre utilisateur (`root`, `debian`), le job `deploy` peut échouer avec des erreurs de permission (écriture `.env` via `sed -i`, écriture des fichiers téléchargés via `curl`). Le job `deploy` se connecte en tant que `deploy`, pas en tant que `root`. Le répertoire `/opt/devfolio` doit être accessible en écriture par `deploy`.
 
 ---
 
@@ -81,7 +81,7 @@ push sur ci-cd-pipeline
   → build-and-push (Docker + Trivy + GHCR)
   → deploy (SSH → VPS)
       → sed IMAGE_TAG dans .env
-      → git checkout docker-compose.staging.yml nginx.staging.conf
+      → curl docker-compose.staging.yml nginx.staging.conf (raw.githubusercontent.com)
       → docker login ghcr.io
       → docker compose pull
       → docker compose up -d
@@ -142,6 +142,15 @@ La configuration Nginx sur l'hôte (`/etc/nginx/sites-enabled/devfolio`) est ins
 | Frontend 301 Moved Permanently (site inaccessible) | Le conteneur frontend Docker redirige HTTP vers HTTPS (port 80 → 443), mais le port 443 n'est pas mappé sur l'hôte. Le Nginx hôte proxy vers `127.0.0.1:3000` (port 80) qui redirige au lieu de servir le contenu | Création de `nginx.staging.conf` (HTTP simple sans redirection TLS) monté en volume dans `docker-compose.staging.yml` |
 
 > En staging, le Nginx hôte gère déjà le TLS (certificat auto-signé). Le conteneur frontend n'a pas besoin de faire de redirection HTTP → HTTPS. `nginx.staging.conf` sert le contenu statique sur le port 80 sans TLS ni redirection.
+
+### Correctif permissions git + paths-ignore : Run #4
+
+| Problème | Cause | Fix |
+|---|---|---|
+| `git fetch` échoue sur le VPS (`insufficient permission for adding an object to repository database .git/objects`) | Le compte `deploy` n'a pas les permissions d'écriture sur `.git/objects` (fichiers créés par `root` ou `debian` lors d'un `deploy.sh` manuel) | Remplacement de `git fetch` + `git checkout` par `curl` depuis `raw.githubusercontent.com` — plus besoin d'écrire dans `.git/` |
+| Commits de documentation déclenchent un déploiement inutile | Le workflow se déclenche sur tout push sans filtrer les fichiers modifiés | Ajout de `paths-ignore` (`docs/**`, `*.md`, `README.md`, `AGENTS.md`) sur le trigger `push` |
+
+> **Pourquoi `curl` plutôt que `git fetch` ?** Le repo étant public, les fichiers de configuration (`docker-compose.staging.yml`, `nginx.staging.conf`) sont accessibles via `raw.githubusercontent.com/dylanholin/cybersec-bad-folio/<SHA>/...` sans authentification. Cette approche télécharge uniquement les fichiers nécessaires, sans maintenir un dépôt git complet sur le VPS. Le SHA du commit (`$IMAGE_TAG`) garantit que la version téléchargée correspond exactement à la version déployée.
 
 ---
 

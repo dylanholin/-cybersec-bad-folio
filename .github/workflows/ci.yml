@@ -3,6 +3,13 @@ name: CI
 on:
   push:
     branches: [ci-cd-pipeline]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - 'README.md'
+      - 'AGENTS.md'
+      - '.devin/**'
+      - '.vscode/**'
   pull_request:
     branches: [ci-cd-pipeline]
 
@@ -189,9 +196,10 @@ jobs:
             # Mettre a jour IMAGE_TAG dans .env
             sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$IMAGE_TAG/" .env
 
-            # Recuperer le docker-compose.staging.yml a jour
-            git fetch origin ci-cd-pipeline
-            git checkout origin/ci-cd-pipeline -- docker-compose.staging.yml nginx.staging.conf
+            # Recuperer les fichiers de config a jour via curl (evite git fetch
+            # qui necessite des permissions d'ecriture sur .git/objects du VPS)
+            curl -fsSL "https://raw.githubusercontent.com/dylanholin/cybersec-bad-folio/$IMAGE_TAG/docker-compose.staging.yml" -o docker-compose.staging.yml
+            curl -fsSL "https://raw.githubusercontent.com/dylanholin/cybersec-bad-folio/$IMAGE_TAG/nginx.staging.conf" -o nginx.staging.conf
 
             # Login GHCR pour pull les images privees
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin

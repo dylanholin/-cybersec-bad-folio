@@ -30,3 +30,5 @@
 | `docs/ci-cd/00-depart.md` | Mise à jour références vers nouveaux fichiers segmentés + corrections (Docker Compose v2.x, GHCR only, E2E non implémentés) | ce commit |
 | `docs/ci-cd/01-pipeline-ci.md` | **Suppression** (scission en 7 fichiers) | ce commit |
 | `README.md` | Mise à jour tableau `docs/ci-cd/` avec les 7 nouveaux fichiers | ce commit |
+| `.github/workflows/ci.yml` | Ajout `paths-ignore` (`docs/**`, `*.md`) + remplacement `git fetch`/`git checkout` par `curl` depuis `raw.githubusercontent.com` (fix permissions `.git/objects` sur VPS) | ce commit |
+| `docs/ci-cd/06-deploiement-continu.md` | Mise à jour : étape récupération fichiers (`curl` au lieu de `git fetch`), flux de déploiement, ajout correctif Run #4 | ce commit |
