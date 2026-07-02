@@ -193,6 +193,8 @@ jobs:
             # Se placer dans le dossier du projet
             cd "$PROJECT_DIR"
 
+            # IMAGE_TAG = SHA du commit (pinned, pas de latest)
+
             # Mettre a jour IMAGE_TAG dans .env
             sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$IMAGE_TAG/" .env
 
