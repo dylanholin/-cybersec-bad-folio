@@ -25,3 +25,6 @@ database/init.sql
 
 # Consignes internes (non versionnées)
 docs/CONTEXT.md
+
+# Plan d'audit interne (suivi IA, non destiné au dépôt)
+plan.md
